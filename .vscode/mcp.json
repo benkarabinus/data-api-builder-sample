@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "SQL MCP Server": {
+      "type": "http",
+      "url": "https://sqlrag-dab-dev.icyglacier-f72093b0.westus.azurecontainerapps.io/mcp"
+    }
+  }
+}

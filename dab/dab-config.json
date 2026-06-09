@@ -1,0 +1,88 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('SQL_CONNECTION_STRING')",
+    "options": {
+      "set-session-context": false
+    }
+  },
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api",
+      "request-body-strict": true
+    },
+    "graphql": {
+      "enabled": true,
+      "path": "/graphql",
+      "allow-introspection": true
+    },
+    "mcp": {
+      "enabled": true
+    },
+    "host": {
+      "mode": "production",
+      "cors": {
+        "origins": ["*"],
+        "allow-credentials": false
+      }
+    }
+  },
+  "entities": {
+    "Product": {
+      "source": {
+        "object": "dbo.Products",
+        "type": "table"
+      },
+      "permissions": [
+        { "role": "anonymous", "actions": ["read"] }
+      ],
+      "fields": [
+        { "name": "ProductID", "description": "Unique product identifier (integer primary key).", "primary-key": true },
+        { "name": "Name", "description": "Display name of the product." },
+        { "name": "Category", "description": "Product category. Valid values: Furniture, Electronics, Office Supplies, Accessories." },
+        { "name": "Price", "description": "Retail price per unit in USD (decimal)." },
+        { "name": "Cost", "description": "Wholesale cost per unit in USD (decimal)." },
+        { "name": "Inventory", "description": "Current units in stock (integer)." },
+        { "name": "CreatedAt", "description": "Row creation timestamp in UTC (ISO 8601)." }
+      ],
+      "description": "Catalog of physical products with pricing and inventory."
+    },
+    "ProductReview": {
+      "source": {
+        "object": "dbo.ProductReviews",
+        "type": "table"
+      },
+      "permissions": [
+        { "role": "anonymous", "actions": ["read"] }
+      ],
+      "fields": [
+        { "name": "ReviewID", "description": "Unique review identifier (integer primary key).", "primary-key": true },
+        { "name": "ProductID", "description": "Foreign key to Product.ProductID." },
+        { "name": "ReviewerName", "description": "Name of the customer who wrote the review." },
+        { "name": "ReviewText", "description": "Free-text body of the review." },
+        { "name": "Rating", "description": "Star rating as a 1-5 integer." },
+        { "name": "CreatedAt", "description": "Row creation timestamp in UTC (ISO 8601)." }
+      ],
+      "description": "Customer reviews of products. Each row also carries a VECTOR(1536) embedding used by the FindSimilarReviewsHybrid search tool (not returned by reads)."
+    },
+    "FindSimilarReviewsHybrid": {
+      "source": {
+        "object": "dbo.find_similar_reviews_hybrid",
+        "type": "stored-procedure",
+        "parameters": [
+          { "name": "queryText", "description": "Natural-language search text to find matching reviews.", "required": true },
+          { "name": "top", "description": "Maximum number of results to return (integer).", "required": true }
+        ]
+      },
+      "rest":    { "methods": ["POST"] },
+      "graphql": { "operation": "mutation" },
+      "mcp":     { "custom-tool": true },
+      "permissions": [
+        { "role": "anonymous", "actions": ["execute"] }
+      ],
+      "description": "Hybrid (vector + full-text) search over ProductReviews. Returns top-N reviews ranked by Reciprocal Rank Fusion. Parameters: queryText (search string), top (result count)."
+    }
+  }
+}

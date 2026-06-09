@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 480" font-family="Segoe UI, system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#605E5C"/>
+    </marker>
+  </defs>
+
+  <!-- ACA wrapper -->
+  <rect x="290" y="120" width="280" height="180" rx="10" fill="none" stroke="#0078D4" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="302" y="140" fill="#0078D4" font-size="12" font-weight="600">Azure Container Apps</text>
+
+  <!-- SQL wrapper -->
+  <rect x="620" y="60" width="340" height="300" rx="10" fill="none" stroke="#CC2927" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="632" y="80" fill="#CC2927" font-size="12" font-weight="600">Azure SQL Database (ProductsDB)</text>
+
+  <!-- Clients -->
+  <rect x="20" y="60" width="220" height="60" rx="6" fill="#0078D4"/>
+  <text x="130" y="85" text-anchor="middle" fill="#fff" font-weight="600">VS Code Copilot Chat</text>
+  <text x="130" y="103" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">MCP client</text>
+
+  <rect x="20" y="150" width="220" height="60" rx="6" fill="#0078D4"/>
+  <text x="130" y="175" text-anchor="middle" fill="#fff" font-weight="600">Streamlit web app</text>
+  <text x="130" y="193" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">optional · step 7</text>
+
+  <rect x="20" y="240" width="220" height="60" rx="6" fill="#0078D4"/>
+  <text x="130" y="265" text-anchor="middle" fill="#fff" font-weight="600">Foundry agent</text>
+  <text x="130" y="283" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">optional · step 8</text>
+
+  <!-- DAB -->
+  <rect x="310" y="160" width="240" height="120" rx="6" fill="#0078D4"/>
+  <text x="430" y="195" text-anchor="middle" fill="#fff" font-weight="700" font-size="15">Data API Builder</text>
+  <text x="430" y="220" text-anchor="middle" fill="#fff" font-size="12" opacity="0.9">REST · GraphQL · MCP</text>
+  <text x="430" y="244" text-anchor="middle" fill="#fff" font-size="11" opacity="0.85" font-family="Consolas, monospace">/api · /graphql · /mcp</text>
+
+  <!-- SQL inner boxes -->
+  <rect x="640" y="100" width="300" height="60" rx="4" fill="#CC2927"/>
+  <text x="790" y="124" text-anchor="middle" fill="#fff" font-weight="600">Products / ProductReviews</text>
+  <text x="790" y="143" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">+ VECTOR(1536) + Full-text index</text>
+
+  <rect x="640" y="180" width="300" height="60" rx="4" fill="#CC2927"/>
+  <text x="790" y="203" text-anchor="middle" fill="#fff" font-weight="600" font-family="Consolas, monospace" font-size="12">dbo.find_similar_reviews_hybrid</text>
+  <text x="790" y="222" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">(@queryText, @top)</text>
+
+  <rect x="640" y="260" width="300" height="60" rx="4" fill="#10A37F"/>
+  <text x="790" y="284" text-anchor="middle" fill="#fff" font-weight="600">EXTERNAL MODEL</text>
+  <text x="790" y="302" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">EmbeddingModel</text>
+
+  <!-- OpenAI -->
+  <rect x="620" y="380" width="340" height="60" rx="6" fill="#10A37F"/>
+  <text x="790" y="404" text-anchor="middle" fill="#fff" font-weight="600">Azure OpenAI</text>
+  <text x="790" y="422" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">text-embedding-3-small</text>
+
+  <!-- UAMI -->
+  <rect x="20" y="380" width="540" height="60" rx="30" fill="#FFB900"/>
+  <text x="290" y="404" text-anchor="middle" fill="#000" font-weight="700">UAMI · sqlrag-uami-dev</text>
+  <text x="290" y="422" text-anchor="middle" fill="#000" font-size="11" opacity="0.85">attached to ACA · mapped as DB user · Cognitive Services OpenAI User</text>
+
+  <!-- Arrows: clients -> DAB -->
+  <path d="M240,90 C280,90 280,200 308,200" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="245" y="80" fill="#605E5C" font-size="11">MCP /mcp</text>
+
+  <path d="M240,180 L308,215" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="248" y="200" fill="#605E5C" font-size="11">REST /api</text>
+
+  <path d="M240,270 C280,270 280,240 308,238" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="245" y="290" fill="#605E5C" font-size="11">MCP /mcp</text>
+
+  <!-- DAB -> SQL -->
+  <path d="M550,210 L640,210" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="595" y="200" text-anchor="middle" fill="#605E5C" font-size="11">T-SQL · AAD MI</text>
+
+  <!-- EM -> OpenAI -->
+  <path d="M790,320 L790,380" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="800" y="355" fill="#605E5C" font-size="11">AI_GENERATE_EMBEDDINGS</text>
+</svg>

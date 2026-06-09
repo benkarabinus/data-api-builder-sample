@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "hediet.vscode-drawio",
+    "ms-mssql.mssql",
+    "ms-azuretools.vscode-bicep",
+    "hashicorp.terraform"
+  ]
+}

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" font-family="Segoe UI, system-ui, -apple-system, sans-serif" font-size="12">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#605E5C"/>
+    </marker>
+  </defs>
+
+  <!-- Caller -->
+  <rect x="280" y="20" width="240" height="56" rx="6" fill="#0078D4"/>
+  <text x="400" y="44" text-anchor="middle" fill="#fff" font-weight="700">Caller</text>
+  <text x="400" y="62" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">@queryText, @top</text>
+
+  <path d="M400,76 L400,100" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- Embedding -->
+  <rect x="220" y="100" width="360" height="60" rx="6" fill="#10A37F"/>
+  <text x="400" y="124" text-anchor="middle" fill="#fff" font-weight="700">AI_GENERATE_EMBEDDINGS</text>
+  <text x="400" y="143" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">USE MODEL EmbeddingModel  →  VECTOR(1536)</text>
+
+  <path d="M400,160 L400,190" stroke="#605E5C" stroke-width="1.5" fill="none"/>
+  <text x="412" y="180" fill="#605E5C" font-size="11" font-style="italic">@queryEmbedding</text>
+
+  <circle cx="400" cy="195" r="4" fill="#605E5C"/>
+  <path d="M400,195 L210,235" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M400,195 L590,235" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- Parallel rankers wrapper -->
+  <rect x="20" y="240" width="760" height="160" rx="10" fill="none" stroke="#605E5C" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="32" y="260" fill="#605E5C" font-size="12" font-weight="600">Two parallel rankers · top-50 each</text>
+
+  <!-- Vector ranker -->
+  <rect x="40" y="280" width="340" height="100" rx="6" fill="#CC2927"/>
+  <text x="210" y="304" text-anchor="middle" fill="#fff" font-weight="700">Vector ranker</text>
+  <text x="210" y="326" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">VECTOR_DISTANCE('cosine', col, @qv)</text>
+  <text x="210" y="344" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">ORDER BY distance ASC</text>
+  <text x="210" y="364" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">→ vector_rank · vector_score</text>
+
+  <!-- Keyword ranker -->
+  <rect x="420" y="280" width="340" height="100" rx="6" fill="#CC2927"/>
+  <text x="590" y="304" text-anchor="middle" fill="#fff" font-weight="700">Keyword ranker</text>
+  <text x="590" y="326" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">FREETEXTTABLE(..., @queryText, 50)</text>
+  <text x="590" y="344" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">ORDER BY [RANK] DESC</text>
+  <text x="590" y="364" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">→ keyword_rank · keyword_score</text>
+
+  <!-- Arrows down to fuse -->
+  <path d="M210,380 L210,430 L380,430" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M590,380 L590,430 L420,430" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- Fuse node -->
+  <rect x="220" y="440" width="360" height="60" rx="6" fill="#FFB900"/>
+  <text x="400" y="464" text-anchor="middle" fill="#000" font-weight="700">RRF fuse</text>
+  <text x="400" y="482" text-anchor="middle" fill="#000" font-size="11" opacity="0.85">rrf_score = 1/(60+v_rank) + 1/(60+k_rank)</text>
+
+  <path d="M400,500 L400,530" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- Output -->
+  <rect x="200" y="530" width="400" height="56" rx="6" fill="#0078D4"/>
+  <text x="400" y="554" text-anchor="middle" fill="#fff" font-weight="700">SELECT TOP (@top) ... ORDER BY rrf_score DESC</text>
+  <text x="400" y="572" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">→ ranked rows back to caller</text>
+</svg>

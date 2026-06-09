@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 460" font-family="Segoe UI, system-ui, -apple-system, sans-serif" font-size="12">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#605E5C"/>
+    </marker>
+  </defs>
+
+  <!-- Insert lane -->
+  <text x="20" y="32" fill="#0078D4" font-size="14" font-weight="700">Insert path · auto-embed trigger (optional)</text>
+
+  <rect x="20" y="50" width="140" height="56" rx="6" fill="#0078D4"/>
+  <text x="90" y="74" text-anchor="middle" fill="#fff" font-weight="600">Client / seed</text>
+  <text x="90" y="92" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">INSERT row</text>
+
+  <rect x="190" y="50" width="160" height="56" rx="6" fill="#CC2927"/>
+  <text x="270" y="74" text-anchor="middle" fill="#fff" font-weight="600">ProductReviews</text>
+  <text x="270" y="92" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">table</text>
+
+  <rect x="380" y="50" width="170" height="56" rx="6" fill="#CC2927"/>
+  <text x="465" y="74" text-anchor="middle" fill="#fff" font-weight="600">AFTER INSERT trigger</text>
+  <text x="465" y="92" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">tr_review_autoembed</text>
+
+  <rect x="580" y="50" width="220" height="56" rx="6" fill="#10A37F"/>
+  <text x="690" y="74" text-anchor="middle" fill="#fff" font-weight="600">AI_GENERATE_EMBEDDINGS</text>
+  <text x="690" y="92" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">USE MODEL EmbeddingModel</text>
+
+  <rect x="830" y="50" width="150" height="56" rx="6" fill="#10A37F"/>
+  <text x="905" y="74" text-anchor="middle" fill="#fff" font-weight="600">Azure OpenAI</text>
+  <text x="905" y="92" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">embeddings</text>
+
+  <path d="M160,78 L188,78" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M350,78 L378,78" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M550,78 L578,78" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M800,78 L828,78" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- write back vector -->
+  <path d="M690,106 C690,170 270,170 270,106" stroke="#605E5C" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  <text x="480" y="160" text-anchor="middle" fill="#605E5C" font-size="11" font-style="italic">UPDATE ReviewEmbedding = vector</text>
+
+  <line x1="0" y1="210" x2="1000" y2="210" stroke="#E1DFDD" stroke-width="1"/>
+
+  <!-- Query lane -->
+  <text x="20" y="240" fill="#0078D4" font-size="14" font-weight="700">Query path · search SP</text>
+
+  <rect x="20" y="258" width="140" height="56" rx="6" fill="#0078D4"/>
+  <text x="90" y="282" text-anchor="middle" fill="#fff" font-weight="600">DAB / MCP / SQL</text>
+  <text x="90" y="300" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">@queryText, @top</text>
+
+  <rect x="190" y="258" width="190" height="56" rx="6" fill="#CC2927"/>
+  <text x="285" y="282" text-anchor="middle" fill="#fff" font-weight="600" font-family="Consolas, monospace" font-size="11">find_similar_reviews_hybrid</text>
+  <text x="285" y="300" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">stored procedure</text>
+
+  <rect x="410" y="258" width="200" height="56" rx="6" fill="#10A37F"/>
+  <text x="510" y="282" text-anchor="middle" fill="#fff" font-weight="600">AI_GENERATE_EMBEDDINGS</text>
+  <text x="510" y="300" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">→ query vector</text>
+
+  <rect x="640" y="258" width="180" height="56" rx="6" fill="#CC2927"/>
+  <text x="730" y="282" text-anchor="middle" fill="#fff" font-weight="600">Vector + keyword</text>
+  <text x="730" y="300" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">two top-50 sets</text>
+
+  <rect x="850" y="258" width="130" height="56" rx="6" fill="#FFB900"/>
+  <text x="915" y="282" text-anchor="middle" fill="#000" font-weight="700">RRF fuse</text>
+  <text x="915" y="300" text-anchor="middle" fill="#000" font-size="11" opacity="0.85">→ top-N rows</text>
+
+  <path d="M160,286 L188,286" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M380,286 L408,286" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M610,286 L638,286" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <path d="M820,286 L848,286" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- response back -->
+  <path d="M915,314 C915,374 90,374 90,314" stroke="#605E5C" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  <text x="500" y="368" text-anchor="middle" fill="#605E5C" font-size="11" font-style="italic">ranked rows back to caller</text>
+
+  <text x="20" y="430" fill="#605E5C" font-size="11" font-style="italic">Both paths share the same EXTERNAL MODEL · DSC · UAMI authentication chain. No API keys cross the wire.</text>
+</svg>

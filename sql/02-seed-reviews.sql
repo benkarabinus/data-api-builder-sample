@@ -1,0 +1,20 @@
+INSERT INTO dbo.ProductReviews (ProductID, ReviewerName, ReviewText, Rating)
+VALUES
+(1, 'Ana', 'Very comfortable for long workdays and lower back support is excellent.', 5),
+(1, 'Priya', 'Seat cushion feels premium and the adjustments are easy to use.', 5),
+(1, 'Luke', 'Great chair but armrests are a little firm after several hours.', 4),
+(2, 'Maya', 'The standing desk motor is smooth and quiet, ideal for calls.', 5),
+(2, 'James', 'Assembly took time but stability is excellent once built.', 4),
+(2, 'Noah', 'Plenty of desk space and easy height memory presets.', 5),
+(3, 'Ella', 'Mouse is responsive, battery life is great, very ergonomic.', 5),
+(3, 'Zoe', 'Works well for office use and travel, compact and reliable.', 4),
+(4, 'Ivy', 'Keyboard feel is crisp and typing speed improved noticeably.', 5),
+(4, 'Marco', 'A bit loud in shared office but key feel is fantastic.', 4),
+(5, 'Ava', 'Headphones are comfortable and noise isolation is strong.', 5),
+(5, 'Nina', 'Sound quality is rich but clamping force is a little tight.', 4),
+(6, 'Ben', 'Keeps water cold all day and fits in my bag perfectly.', 5),
+(7, 'Liam', 'Notebook paper quality is high and pages do not bleed.', 4),
+(8, 'Sofia', 'Lamp brightness levels are useful and light is easy on eyes.', 5),
+(9, 'Kai', 'Monitor color accuracy is excellent for design work.', 5),
+(9, 'Mila', 'Sharp display and good stand adjustments for ergonomics.', 5),
+(10, 'Rae', 'Sleeve is protective and lightweight, zipper feels durable.', 4);

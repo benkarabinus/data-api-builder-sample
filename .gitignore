@@ -1,0 +1,24 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+terraform.tfvars
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+.vscode/*.log
+*.user
+*.suo
+node_modules/
+coverage/
+dist/
+*.png
+!.drawio.png
+
+# Deployment state written by deploy.ps1 — contains subscription ID, UAMI
+# IDs, resource FQDNs, and ACA URLs. Regenerated on every run; never commit.
+# The committed outputs.template.json documents the schema.
+/outputs.json
