@@ -20,11 +20,11 @@
 
   <rect x="20" y="150" width="220" height="60" rx="6" fill="#0078D4"/>
   <text x="130" y="175" text-anchor="middle" fill="#fff" font-weight="600">Streamlit web app</text>
-  <text x="130" y="193" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">optional · step 7</text>
+  <text x="130" y="193" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">search · browse · chat</text>
 
-  <rect x="20" y="240" width="220" height="60" rx="6" fill="#0078D4"/>
+  <rect x="20" y="240" width="220" height="60" rx="6" fill="#10A37F"/>
   <text x="130" y="265" text-anchor="middle" fill="#fff" font-weight="600">Foundry agent</text>
-  <text x="130" y="283" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">optional · step 8</text>
+  <text x="130" y="283" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">chat-with-your-data · gpt-4.1</text>
 
   <!-- DAB -->
   <rect x="310" y="160" width="240" height="120" rx="6" fill="#0078D4"/>
@@ -45,31 +45,36 @@
   <text x="790" y="284" text-anchor="middle" fill="#fff" font-weight="600">EXTERNAL MODEL</text>
   <text x="790" y="302" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9" font-family="Consolas, monospace">EmbeddingModel</text>
 
-  <!-- OpenAI -->
+  <!-- Foundry -->
   <rect x="620" y="380" width="340" height="60" rx="6" fill="#10A37F"/>
-  <text x="790" y="404" text-anchor="middle" fill="#fff" font-weight="600">Azure OpenAI</text>
-  <text x="790" y="422" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">text-embedding-3-small</text>
+  <text x="790" y="404" text-anchor="middle" fill="#fff" font-weight="600">Azure AI Foundry</text>
+  <text x="790" y="422" text-anchor="middle" fill="#fff" font-size="11" opacity="0.9">text-embedding-3-small · gpt-4.1 (chat)</text>
 
   <!-- UAMI -->
   <rect x="20" y="380" width="540" height="60" rx="30" fill="#FFB900"/>
   <text x="290" y="404" text-anchor="middle" fill="#000" font-weight="700">UAMI · sqlrag-uami-dev</text>
-  <text x="290" y="422" text-anchor="middle" fill="#000" font-size="11" opacity="0.85">attached to ACA · mapped as DB user · Cognitive Services OpenAI User</text>
+  <text x="290" y="422" text-anchor="middle" fill="#000" font-size="11" opacity="0.85">attached to ACA · DB user · Cognitive Services OpenAI User · Foundry User</text>
 
   <!-- Arrows: clients -> DAB -->
   <path d="M240,90 C280,90 280,200 308,200" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
   <text x="245" y="80" fill="#605E5C" font-size="11">MCP /mcp</text>
 
-  <path d="M240,180 L308,215" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
-  <text x="248" y="200" fill="#605E5C" font-size="11">REST /api</text>
+  <path d="M240,180 L308,205" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="250" y="196" fill="#605E5C" font-size="11">REST /api</text>
 
+  <!-- Streamlit chat tab -> Foundry agent -->
+  <path d="M130,210 L130,240" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="138" y="230" fill="#605E5C" font-size="11">chat (as UAMI)</text>
+
+  <!-- Foundry agent -> DAB (MCP tool) -->
   <path d="M240,270 C280,270 280,240 308,238" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
-  <text x="245" y="290" fill="#605E5C" font-size="11">MCP /mcp</text>
+  <text x="245" y="290" fill="#605E5C" font-size="11">MCP tool</text>
 
   <!-- DAB -> SQL -->
   <path d="M550,210 L640,210" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
   <text x="595" y="200" text-anchor="middle" fill="#605E5C" font-size="11">T-SQL · AAD MI</text>
 
-  <!-- EM -> OpenAI -->
+  <!-- EM -> Foundry -->
   <path d="M790,320 L790,380" stroke="#605E5C" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
   <text x="800" y="355" fill="#605E5C" font-size="11">AI_GENERATE_EMBEDDINGS</text>
 </svg>

@@ -1,0 +1,317 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.43.8.12551",
+      "templateHash": "6313471673806324335"
+    }
+  },
+  "parameters": {
+    "namePrefix": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 12,
+      "metadata": {
+        "description": "Name prefix used for all resources. Lower-case alphanumeric. Example: \"sqlrag\"."
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev",
+      "minLength": 2,
+      "maxLength": 6,
+      "metadata": {
+        "description": "Environment short name. Appended to most resource names. Example: \"dev\"."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "sqlAadAdminObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "Object ID (GUID) of the AAD user/group to be set as the Azure SQL AAD admin. The deploy.ps1 wrapper resolves this from \"az ad signed-in-user show\"."
+      }
+    },
+    "sqlAadAdminLogin": {
+      "type": "string",
+      "metadata": {
+        "description": "UPN or display name of the AAD user/group above. Used as the SQL admin login string."
+      }
+    },
+    "developerIpAddress": {
+      "type": "string",
+      "defaultValue": "0.0.0.0",
+      "metadata": {
+        "description": "IPv4 address to allow through the SQL firewall (typically the deploying machine). Pass \"0.0.0.0\" to skip adding a developer firewall rule."
+      }
+    },
+    "embeddingModelName": {
+      "type": "string",
+      "defaultValue": "text-embedding-3-small",
+      "metadata": {
+        "description": "Embedding model name to deploy on the Foundry account."
+      }
+    },
+    "embeddingModelVersion": {
+      "type": "string",
+      "defaultValue": "1",
+      "metadata": {
+        "description": "Embedding model version."
+      }
+    },
+    "embeddingModelCapacity": {
+      "type": "int",
+      "defaultValue": 10,
+      "metadata": {
+        "description": "Embedding model deployment capacity (TPM in thousands)."
+      }
+    },
+    "chatModelCapacity": {
+      "type": "int",
+      "defaultValue": 10,
+      "metadata": {
+        "description": "Chat model deployment capacity (TPM in thousands)."
+      }
+    }
+  },
+  "variables": {
+    "uniq": "[toLower(substring(uniqueString(subscription().id, resourceGroup().id), 0, 6))]",
+    "uamiName": "[format('{0}-uami-{1}', parameters('namePrefix'), parameters('environmentName'))]",
+    "sqlServerName": "[format('{0}-sql-{1}-{2}', parameters('namePrefix'), parameters('environmentName'), variables('uniq'))]",
+    "sqlDbName": "ProductsDB",
+    "foundryName": "[format('{0}-ai-{1}-{2}', parameters('namePrefix'), parameters('environmentName'), variables('uniq'))]",
+    "foundryProject": "[format('{0}-proj-{1}', parameters('namePrefix'), parameters('environmentName'))]",
+    "embedDeployName": "embedding",
+    "chatDeployName": "chat",
+    "roleCogSvcOpenAIUser": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('uamiName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2023-08-01-preview",
+      "name": "[variables('sqlServerName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')))]": {}
+        }
+      },
+      "properties": {
+        "version": "12.0",
+        "minimalTlsVersion": "1.2",
+        "publicNetworkAccess": "Enabled",
+        "primaryUserAssignedIdentityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName'))]",
+        "administrators": {
+          "administratorType": "ActiveDirectory",
+          "principalType": "User",
+          "login": "[parameters('sqlAadAdminLogin')]",
+          "sid": "[parameters('sqlAadAdminObjectId')]",
+          "tenantId": "[subscription().tenantId]",
+          "azureADOnlyAuthentication": true
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2023-08-01-preview",
+      "name": "[format('{0}/{1}', variables('sqlServerName'), variables('sqlDbName'))]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "GP_S_Gen5_2",
+        "tier": "GeneralPurpose",
+        "family": "Gen5",
+        "capacity": 2
+      },
+      "properties": {
+        "autoPauseDelay": 60,
+        "minCapacity": "[json('0.5')]",
+        "maxSizeBytes": 34359738368,
+        "zoneRedundant": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2023-08-01-preview",
+      "name": "[format('{0}/{1}', variables('sqlServerName'), 'AllowAllAzureServices')]",
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ]
+    },
+    {
+      "condition": "[not(equals(parameters('developerIpAddress'), '0.0.0.0'))]",
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2023-08-01-preview",
+      "name": "[format('{0}/{1}', variables('sqlServerName'), 'AllowDeveloperIp')]",
+      "properties": {
+        "startIpAddress": "[parameters('developerIpAddress')]",
+        "endIpAddress": "[parameters('developerIpAddress')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-06-01",
+      "name": "[variables('foundryName')]",
+      "location": "[parameters('location')]",
+      "kind": "AIServices",
+      "sku": {
+        "name": "S0"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "customSubDomainName": "[variables('foundryName')]",
+        "publicNetworkAccess": "Enabled",
+        "disableLocalAuth": true,
+        "allowProjectManagement": true
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', variables('foundryName'), variables('foundryProject'))]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {},
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', variables('foundryName'), variables('embedDeployName'))]",
+      "sku": {
+        "name": "Standard",
+        "capacity": "[parameters('embeddingModelCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('embeddingModelName')]",
+          "version": "[parameters('embeddingModelVersion')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', variables('foundryName'), variables('chatDeployName'))]",
+      "sku": {
+        "name": "Standard",
+        "capacity": "[parameters('chatModelCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-4.1",
+          "version": "2025-04-14"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')), variables('roleCogSvcOpenAIUser'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleCogSvcOpenAIUser'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "uamiName": {
+      "type": "string",
+      "value": "[variables('uamiName')]"
+    },
+    "uamiResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName'))]"
+    },
+    "uamiClientId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')), '2023-01-31').clientId]"
+    },
+    "uamiPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')), '2023-01-31').principalId]"
+    },
+    "sqlServerName": {
+      "type": "string",
+      "value": "[variables('sqlServerName')]"
+    },
+    "sqlServerFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Sql/servers', variables('sqlServerName')), '2023-08-01-preview').fullyQualifiedDomainName]"
+    },
+    "sqlDatabaseName": {
+      "type": "string",
+      "value": "[variables('sqlDbName')]"
+    },
+    "foundryAccountName": {
+      "type": "string",
+      "value": "[variables('foundryName')]"
+    },
+    "foundryProjectName": {
+      "type": "string",
+      "value": "[variables('foundryProject')]"
+    },
+    "foundryEndpoint": {
+      "type": "string",
+      "value": "[format('https://{0}.services.ai.azure.com/api/projects/{1}', variables('foundryName'), variables('foundryProject'))]"
+    },
+    "openAiEndpoint": {
+      "type": "string",
+      "value": "[format('https://{0}.openai.azure.com/', variables('foundryName'))]"
+    },
+    "embeddingDeployment": {
+      "type": "string",
+      "value": "[variables('embedDeployName')]"
+    },
+    "chatDeployment": {
+      "type": "string",
+      "value": "[variables('chatDeployName')]"
+    }
+  }
+}

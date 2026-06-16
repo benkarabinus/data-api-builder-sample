@@ -1,5 +1,90 @@
 # Changelog
 
+## 2026-06-15 — Verify agent end-to-end, fix RBAC + UAMI auth, refresh docs
+
+Hardening + verification pass on the new agent stack, plus a full documentation
+refresh to match the new direction.
+
+- **End-to-end verified.** The agent was confirmed live via three paths: the
+  Foundry playground, the Responses API, and the local Agent Framework SDK
+  (`agent.py --invoke`) — all returning grounded answers from the DAB tools.
+- **Correct invoke role.** The UAMI now gets **Foundry User** on the Foundry
+  account (the documented role for Responses-API/agent invocation), not
+  `Azure AI User` (which no longer resolves in tenants that have completed the
+  rename) nor the broader `Azure AI Developer`. `deploy.ps1` tries `Foundry User`
+  first and falls back to the old `Azure AI User` name for not-yet-renamed
+  tenants.
+- **UAMI auth fix.** The web container sets `AZURE_CLIENT_ID` to the UAMI client
+  ID so `DefaultAzureCredential` selects the user-assigned identity (without it,
+  the chat tab failed with *Unable to load the proper Managed Identity*).
+  Added a `uamiClientId` param to `webapp-aca.bicep` and passed it from
+  `deploy.ps1`.
+- **Missing runtime dep.** `aiohttp` is now pinned in `app/requirements.txt` and
+  `agent/requirements.txt` — `agent-framework-foundry` needs it at runtime but
+  doesn't pull it transitively.
+- **app.py refactor.** Restructured the Streamlit app into clear sections
+  (config → DAB client → agent client → UI tabs → `main()`), one function per
+  tab, top-level imports, no module-scope side effects.
+- **Docs refreshed for the new direction.** Updated `README.md`,
+  `docs/PROJECT_CONTEXT.md`, `docs/ARCHITECTURE.md` (identity + topology mermaid,
+  five-stage table, new agent/chat-tab section + sequence diagram), rewrote
+  `agent/README.md` from a portal walkthrough to the SDK-orchestrated flow, and
+  updated the `01-solution-overview` diagram (SVG + prose) to show the deployed
+  agent and the web app's chat path.
+
+## 2026-06-15 — Move to new Foundry agents runtime + Agent Framework SDK
+
+Corrected the agent integration to the modern stack after the first pass used
+the deprecated `azure.ai.projects` classic-agent API (which landed in the old
+Agents UI and used non-existent SDK calls).
+
+- **Prompt agent on the new runtime.** The agent `chat-with-your-data` is now
+  defined with `azure-ai-projects` `agents.create_version(...)` +
+  `PromptAgentDefinition` + `MCPTool`, so it appears in the new Foundry Agents
+  experience. Its `model` references the **deployment name** (`chat`), not the
+  model name (`gpt-4.1`) — the earlier mismatch caused `DeploymentNotFound`.
+- **MCP URL fixed.** The tool now targets the current DAB `/mcp` endpoint from
+  `outputs.json` (`dabAppUrl`), replacing a stale Container Apps host.
+- **Streamlit chat tab (real, not stubbed).** `app/app.py` adds a "Chat with
+  Agent" tab that connects with the **Microsoft Agent Framework SDK**
+  (`agent_framework.foundry.FoundryAgent`) via `DefaultAzureCredential` (the web
+  container's UAMI), with `st.session_state` history. The tab shows only when
+  `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_AGENT_NAME` are set.
+- **deploy.ps1 Stage 5 rewritten.** Upserts the prompt agent with the real SDK,
+  grants the UAMI **Azure AI User** on the Foundry account (needed to invoke the
+  agent), then patches the web app with `FOUNDRY_PROJECT_ENDPOINT`,
+  `FOUNDRY_AGENT_NAME`, `FOUNDRY_AGENT_VERSION`.
+- **Env/params.** `webapp-aca.bicep` swaps the old
+  `foundryProjectConnection`/`agentId` for `foundryProjectEndpoint`,
+  `foundryAgentName`, `foundryAgentVersion`. `outputs.template.json` tracks
+  `agentName`/`agentVersion`.
+- **agent.py** is now a real local helper: `--ensure` (upsert via
+  `create_version`) and `--invoke` (chat via `FoundryAgent`).
+- **Dependencies.** `app/requirements.txt` and `agent/requirements.txt` use
+  `agent-framework-foundry` + `azure-ai-projects>=2.1.0` + `azure-identity`.
+
+## 2026-06-15 — Automated Foundry agent deployment + Streamlit chat UI
+
+Full end-to-end orchestration for Foundry agents with gpt-4.1 model and Streamlit integration.
+
+- **Automated agent deployment.** `deploy.ps1` Stage 5 now programmatically creates a Foundry agent using the Azure AI SDK (Python). The agent:
+  - Connects to the DAB MCP endpoint at `{dabAppUrl}/mcp`
+  - Uses `gpt-4.1` as the chat model (deployed in foundation stage)
+  - Auto-updates the Streamlit web app with the agent ID after creation
+  - Falls back gracefully to manual creation if SDK fails
+- **GPT-4.1 chat model.** `foundation.bicep` now deploys `gpt-4.1` (in addition to the embedding model) to support agentic tool calling.
+- **Streamlit chat tab.** `app/app.py` adds a new "Chat with Agent" tab that:
+  - Uses `st.session_state` for stateful conversation history (in-memory, lost on refresh)
+  - Authenticates via UAMI (managed identity) to Foundry
+  - Invokes the agent and streams responses in a chat UI
+  - Only visible if `FOUNDRY_AGENT_ID` and `FOUNDRY_PROJECT_CONNECTION` env vars are set
+- **Streamlit container identity.** `webapp-aca.bicep` now passes Foundry configuration to the Streamlit container via environment variables, which runs as the UAMI for seamless authentication.
+- **Local agent testing.** `agent/agent.py` is a standalone script for local development:
+  - Create agents: `python agent.py --create`
+  - Test invoke: `python agent.py --invoke "your question"`
+  - Loads outputs.json for configuration
+- **Dependencies.** Updated `app/requirements.txt` and created `agent/requirements.txt` with `azure-ai-projects`, `azure-identity`, `python-dotenv` for Azure SDK support.
+
 ## 2026-06-06 — DAB MCP field metadata + digest deploys + agent guidance
 
 Fixes found while wiring the hosted DAB into a Foundry agent.

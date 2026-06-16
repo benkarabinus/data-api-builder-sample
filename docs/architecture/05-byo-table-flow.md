@@ -36,8 +36,8 @@ DAB + MCP pipeline without changing any agent or client code.
    `deploy.ps1 -SkipSqlScripts -DeployWebApp:$false`; ACA does a
    zero-downtime swap to the new image revision.
 
-After that, every client (VS Code Copilot Chat, the optional web app,
-the optional Foundry agent) sees the new entity through `describe_entities`
+After that, every client (VS Code Copilot Chat, the Streamlit web app,
+the Foundry agent) sees the new entity through `describe_entities`
 and can call it through `read_records` / `execute_entity` with no code
 changes.
 

@@ -4,17 +4,18 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="2" value="Foundry Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="80" y="140" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="2" value="Foundry Agent&#10;chat-with-your-data (gpt-4.1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#10A37F;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="80" y="140" width="220" height="80" as="geometry"/></mxCell>
         <mxCell id="3" value="VS Code MCP Client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="80" y="280" width="220" height="80" as="geometry"/></mxCell>
-        <mxCell id="4" value="Streamlit Web App" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="80" y="420" width="220" height="80" as="geometry"/></mxCell>
-        <mxCell id="5" value="DAB SQL MCP Server\n(Azure Container Apps)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="420" y="220" width="280" height="110" as="geometry"/></mxCell>
-        <mxCell id="6" value="Azure SQL Database\nProducts + ProductReviews" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CC2927;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="820" y="220" width="280" height="110" as="geometry"/></mxCell>
-        <mxCell id="7" value="Azure OpenAI\nEmbeddings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#10A37F;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="1200" y="220" width="220" height="110" as="geometry"/></mxCell>
-        <mxCell id="8" value="MCP" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0078D4;" edge="1" parent="1" source="2" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="4" value="Streamlit Web App&#10;search · browse · chat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="80" y="420" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="5" value="DAB SQL MCP Server&#10;(Azure Container Apps)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="420" y="220" width="280" height="110" as="geometry"/></mxCell>
+        <mxCell id="6" value="Azure SQL Database&#10;Products + ProductReviews" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CC2927;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="820" y="220" width="280" height="110" as="geometry"/></mxCell>
+        <mxCell id="7" value="Azure AI Foundry&#10;embeddings + gpt-4.1 chat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#10A37F;fontColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="1200" y="220" width="220" height="110" as="geometry"/></mxCell>
+        <mxCell id="8" value="MCP tool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10A37F;" edge="1" parent="1" source="2" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
         <mxCell id="9" value="MCP" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0078D4;" edge="1" parent="1" source="3" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="10" value="SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0078D4;" edge="1" parent="1" source="4" target="6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="10" value="REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0078D4;" edge="1" parent="1" source="4" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
         <mxCell id="11" value="T-SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0078D4;" edge="1" parent="1" source="5" target="6"><mxGeometry relative="1" as="geometry"/></mxCell>
         <mxCell id="12" value="AI_GENERATE_EMBEDDINGS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10A37F;" edge="1" parent="1" source="6" target="7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="13" value="chat (as UAMI)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#605E5C;dashed=1;" edge="1" parent="1" source="4" target="2"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>

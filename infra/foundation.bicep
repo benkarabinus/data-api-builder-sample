@@ -54,6 +54,9 @@ param embeddingModelVersion string = '1'
 @description('Embedding model deployment capacity (TPM in thousands).')
 param embeddingModelCapacity int = 10
 
+@description('Chat model deployment capacity (TPM in thousands).')
+param chatModelCapacity int = 10
+
 // -----------------------------------------------------------------------------
 // Variables — naming
 // -----------------------------------------------------------------------------
@@ -67,6 +70,7 @@ var sqlDbName       = 'ProductsDB'
 var foundryName     = '${namePrefix}-ai-${environmentName}-${uniq}'
 var foundryProject  = '${namePrefix}-proj-${environmentName}'
 var embedDeployName = 'embedding'
+var chatDeployName  = 'chat'
 
 // Built-in role: Cognitive Services OpenAI User
 var roleCogSvcOpenAIUser = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
@@ -182,6 +186,9 @@ resource foundryProj 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' 
 resource embedDeploy 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: foundry
   name: embedDeployName
+  dependsOn: [
+    foundryProj
+  ]
   sku: {
     name: 'Standard'
     capacity: embeddingModelCapacity
@@ -191,6 +198,25 @@ resource embedDeploy 'Microsoft.CognitiveServices/accounts/deployments@2025-06-0
       format: 'OpenAI'
       name: embeddingModelName
       version: embeddingModelVersion
+    }
+  }
+}
+
+resource chatDeploy 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  parent: foundry
+  name: chatDeployName
+  dependsOn: [
+    embedDeploy
+  ]
+  sku: {
+    name: 'Standard'
+    capacity: chatModelCapacity
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4.1'
+      version: '2025-04-14'
     }
   }
 }
@@ -234,3 +260,6 @@ output foundryProjectName   string = foundryProj.name
 output foundryEndpoint      string = 'https://${foundry.name}.services.ai.azure.com/api/projects/${foundryProj.name}'
 output openAiEndpoint       string = 'https://${foundry.name}.openai.azure.com/'
 output embeddingDeployment  string = embedDeploy.name
+output chatDeployment       string = chatDeploy.name
+
+

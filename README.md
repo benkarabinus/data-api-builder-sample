@@ -14,7 +14,8 @@ az login
 > — region, sample data, and the web UI are all configurable.
 
 When it finishes you have a live SQL database with embedded data, a hosted
-**MCP server** your AI tools can call, and a web UI to demo it.
+**MCP server** your AI tools can call, a web UI to demo it, and a **Foundry
+agent** you can chat with — all created in one run.
 
 ![Solution overview](docs/architecture/01-solution-overview.svg)
 
@@ -25,13 +26,14 @@ When it finishes you have a live SQL database with embedded data, a hosted
 | Piece | What it does |
 |---|---|
 | **Azure SQL Database** | Holds your data **and** its vector embeddings. Entra-only auth. |
-| **Azure AI Foundry** | Hosts `text-embedding-3-small`. SQL calls it as the UAMI to embed text. |
+| **Azure AI Foundry** | Hosts `text-embedding-3-small` (embeddings) and `gpt-4.1` (the agent's chat model). SQL calls the embedding model as the UAMI. |
 | **Hybrid search** | `dbo.find_similar_reviews_hybrid` fuses vector similarity + full-text keyword ranking with Reciprocal Rank Fusion — all inside SQL. |
 | **Data API Builder (DAB) on Container Apps** | Exposes the tables and the search procedure as **REST + GraphQL + MCP**, no custom code. See the [DAB overview](https://learn.microsoft.com/azure/data-api-builder/overview). Authenticates to SQL as the UAMI. |
-| **Streamlit web UI** | A thin demo page that calls DAB's REST endpoint. No SQL, no LLM. |
+| **Foundry prompt agent** | `chat-with-your-data` — created by `deploy.ps1`, wired to the DAB `/mcp` tool, visible in the new Foundry Agents UI. |
+| **Streamlit web UI** | Search + browse tabs (DAB REST) **plus a Chat with Agent tab** that talks to the Foundry agent via the Microsoft Agent Framework SDK. |
 
 The MCP endpoint (`https://<your-dab-app>/mcp`) is the headline: point VS Code
-GitHub Copilot Chat or an Azure AI Foundry agent at it and **chat with your
+GitHub Copilot Chat or the deployed Foundry agent at it and **chat with your
 data**.
 
 ---
@@ -44,18 +46,19 @@ flowchart LR
       T[(Tables + VECTOR columns)]
       SP["find_similar_reviews_hybrid<br/>vector + full-text → RRF"]
     end
-    F["Azure AI Foundry<br/>text-embedding-3-small"]
+    F["Azure AI Foundry<br/>embedding + chat models"]
+    AGENT["Foundry agent<br/>chat-with-your-data"]
     DAB["Data API Builder<br/>on Container Apps<br/>REST · GraphQL · MCP"]
-    WEB["Streamlit web UI"]
+    WEB["Streamlit web UI<br/>search · browse · chat"]
     COPILOT["VS Code Copilot Chat"]
-    AGENT["Foundry agent"]
 
     T -- "AI_GENERATE_EMBEDDINGS (as UAMI)" --> F
     SP --> T
     DAB -- "UAMI auth" --> SP
     WEB -- REST --> DAB
+    WEB -- "agent invoke (as UAMI)" --> AGENT
     COPILOT -- MCP --> DAB
-    AGENT -- MCP --> DAB
+    AGENT -- "MCP tool" --> DAB
 ```
 
 1. **Embed.** Each row's text is embedded by Foundry and stored in a
@@ -69,11 +72,12 @@ flowchart LR
    everything as [REST](https://learn.microsoft.com/azure/data-api-builder/rest),
    [GraphQL](https://learn.microsoft.com/azure/data-api-builder/graphql), and
    [MCP](https://learn.microsoft.com/azure/data-api-builder/mcp/).
-4. **Consume.** The web UI calls REST; Copilot Chat and Foundry agents call
-   MCP.
+4. **Consume.** The web UI's search/browse tabs call REST; Copilot Chat calls
+   MCP; the **Foundry agent** calls the DAB MCP tool, and the web UI's **Chat**
+   tab invokes that agent as the UAMI.
 
-For the full design — the RRF math, the embedding model wiring, and the
-identity model — read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For the full design — the RRF math, the embedding model wiring, the agent, and
+the identity model — read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -87,12 +91,13 @@ Install these once, then `az login`. Each `--version` should print.
 | **Azure CLI** ≥ 2.60 | deploys Bicep, builds images | `winget install Microsoft.AzureCLI` |
 | **Bicep** | infra templates | `az bicep install` |
 | **go-sqlcmd** | runs the SQL with Entra auth (`-G`) | `winget install Microsoft.Sqlcmd` |
-| **Python 3.12+** | run/iterate on the web UI locally before deploying it | `winget install Python.Python.3.12` |
+| **Python 3.12+** | runs the Stage 5 agent setup during deploy, and lets you run/iterate on the web UI locally | `winget install Python.Python.3.12` |
 
 macOS/Linux: use `brew` or the
 [Microsoft install docs](https://learn.microsoft.com/cli/azure/install-azure-cli).
 You do **not** need Docker — images build in the cloud with `az acr build`.
-Python is only needed for the local web-UI loop below — not for deploying.
+Python is required: `deploy.ps1` Stage 5 uses the `azure-ai-projects` SDK to
+create the Foundry agent, and it's also how you run the web UI locally.
 
 **Permissions & quota.** You need **Owner**, or **Contributor + User Access
 Administrator**, on the subscription or resource group (the deploy creates a
@@ -149,11 +154,14 @@ For the request/response shapes see the DAB
 [REST](https://learn.microsoft.com/azure/data-api-builder/rest) and
 [GraphQL](https://learn.microsoft.com/azure/data-api-builder/graphql) docs.
 
-- **Web UI:** open `webAppUrl` from `outputs.json` in a browser.
+- **Web UI:** open `webAppUrl` from `outputs.json` in a browser — use the
+  **Search** and **Browse** tabs, or the **Chat with Agent** tab to talk to
+  the Foundry agent.
 - **VS Code Copilot Chat:** add the hosted MCP server to
   [`.vscode/mcp.json`](.vscode/mcp.json) (replace the placeholder URL with
   your `dabAppUrl` + `/mcp`), then use it in agent mode.
-- **Foundry agent:** follow [agent/README.md](agent/README.md).
+- **Foundry agent:** `deploy.ps1` already created it. Chat with it in the web
+  UI, the Foundry playground, or locally — see [agent/README.md](agent/README.md).
 
 ### Test the web UI locally before deploying it
 
@@ -201,8 +209,8 @@ outputs.json          deployment state (gitignored; see outputs.template.json)
 infra/                Bicep: foundation.bicep · dab-aca.bicep · webapp-aca.bicep
 sql/                  dependency-ordered SQL (00 schema → 22 hybrid search)
 dab/                  Data API Builder config + Dockerfile
-app/                  Streamlit web UI (app.py · Dockerfile · requirements.txt)
-agent/                Foundry agent walkthrough (optional, portal)
+app/                  Streamlit web UI — search · browse · chat (app.py · Dockerfile · requirements.txt)
+agent/                Foundry prompt agent — agent.py · requirements.txt · README.md
 byo/                  bring-your-own-data guide (post-deploy)
 docs/                 ARCHITECTURE.md · CHANGELOG.md · architecture/ diagrams
 ```

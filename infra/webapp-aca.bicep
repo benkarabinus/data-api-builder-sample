@@ -39,6 +39,18 @@ param webImage string
 @description('Public base URL of the hosted DAB app, e.g. https://sqlrag-dab-dev.<region>.azurecontainerapps.io.')
 param dabBaseUrl string
 
+@description('Optional: Foundry project endpoint for the agent chat tab, e.g. https://<account>.services.ai.azure.com/api/projects/<project>.')
+param foundryProjectEndpoint string = ''
+
+@description('Optional: Foundry prompt agent name for the chat tab.')
+param foundryAgentName string = ''
+
+@description('Optional: Foundry prompt agent version for the chat tab. Empty resolves to the latest version.')
+param foundryAgentVersion string = ''
+
+@description('Client ID of the User-Assigned Managed Identity. Required so DefaultAzureCredential targets the UAMI for agent calls.')
+param uamiClientId string
+
 var acaEnvName = '${namePrefix}-acaenv-${environmentName}'
 var webAppName = '${namePrefix}-web-${environmentName}'
 
@@ -89,6 +101,22 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'DAB_BASE_URL'
               value: dabBaseUrl
+            }
+            {
+              name: 'AZURE_CLIENT_ID'
+              value: uamiClientId
+            }
+            {
+              name: 'FOUNDRY_PROJECT_ENDPOINT'
+              value: foundryProjectEndpoint
+            }
+            {
+              name: 'FOUNDRY_AGENT_NAME'
+              value: foundryAgentName
+            }
+            {
+              name: 'FOUNDRY_AGENT_VERSION'
+              value: foundryAgentVersion
             }
           ]
         }

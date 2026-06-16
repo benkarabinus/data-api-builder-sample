@@ -17,16 +17,19 @@ connection secret in code.
 flowchart TD
     UAMI["User-Assigned Managed Identity"]
     SQL["Azure SQL<br/>(Entra-only auth)"]
-    FOUNDRY["Azure AI Foundry account"]
+    FOUNDRY["Azure AI Foundry account<br/>(embedding + chat + agent)"]
     ACR["Azure Container Registry"]
     DAB["DAB container (ACA)"]
+    WEB["Streamlit container (ACA)"]
 
     UAMI -->|"primary identity + DB user<br/>(db_datareader/writer, EXEC dbo)"| SQL
-    UAMI -->|"Cognitive Services OpenAI User"| FOUNDRY
+    UAMI -->|"Cognitive Services OpenAI User<br/>+ Foundry User (agent invoke)"| FOUNDRY
     UAMI -->|"AcrPull"| ACR
     UAMI -.attached to.-> DAB
+    UAMI -.attached to.-> WEB
     DAB -->|"Active Directory Managed Identity"| SQL
     SQL -->|"EXTERNAL MODEL → embeddings,<br/>credential = Managed Identity"| FOUNDRY
+    WEB -->|"FoundryAgent (Agent Framework SDK)<br/>AZURE_CLIENT_ID = UAMI"| FOUNDRY
 ```
 
 - The **SQL server** has the UAMI as its primary identity, so SQL can mint
@@ -39,7 +42,12 @@ flowchart TD
   `Authentication=Active Directory Managed Identity;User Id=<clientId>`.
   Step 2's `CREATE USER ... FROM EXTERNAL PROVIDER` mapped that identity to a
   database user with the rights DAB needs.
-- The same UAMI holds **AcrPull**, so Container Apps pulls the image without
+- The **Streamlit container** also has the UAMI attached. Its **Chat with
+  Agent** tab invokes the Foundry prompt agent as that identity — `DefaultAzureCredential`
+  is pointed at the UAMI via `AZURE_CLIENT_ID`, and the UAMI holds
+  **Foundry User** on the Foundry account (the role that authorizes the
+  Responses API / agent invocation).
+- The same UAMI holds **AcrPull**, so Container Apps pulls the images without
   registry admin credentials.
 
 The result: rotating or revoking one identity governs the entire stack.
@@ -130,7 +138,7 @@ flowchart LR
     subgraph RG["Resource group"]
       UAMI["UAMI"]
       SQLSRV["SQL server + ProductsDB"]
-      FND["Foundry account + project<br/>embedding deployment"]
+      FND["Foundry account + project<br/>embedding + chat deployments<br/>chat-with-your-data agent"]
       ACR["Container Registry"]
       ENV["Container Apps env + Log Analytics"]
       DABAPP["DAB container app"]
@@ -146,22 +154,76 @@ flowchart LR
     ENV --> WEBAPP
     DABAPP --> SQLSRV
     WEBAPP -->|REST| DABAPP
+    WEBAPP -->|agent invoke| FND
+    FND -->|agent's MCP tool| DABAPP
 ```
 
-[`deploy.ps1`](../deploy.ps1) provisions this in four stages, each
+[`deploy.ps1`](../deploy.ps1) provisions this in five stages, each
 idempotent:
 
 | Stage | Template / scripts | Produces |
 |---|---|---|
-| 1. Foundation | [`infra/foundation.bicep`](../infra/foundation.bicep) | UAMI, SQL, Foundry, embedding model, role assignment |
+| 1. Foundation | [`infra/foundation.bicep`](../infra/foundation.bicep) | UAMI, SQL, Foundry, **embedding + chat deployments**, role assignment |
 | 2. SQL data plane | [`sql/*.sql`](../sql) via `sqlcmd -G` | schema, embeddings, hybrid search SP |
 | 3. Hosted DAB | `az acr build` + [`infra/dab-aca.bicep`](../infra/dab-aca.bicep) | ACR, image, ACA env, DAB app |
-| 4. Web UI | `az acr build` + [`infra/webapp-aca.bicep`](../infra/webapp-aca.bicep) | Streamlit app in the same ACA env |
+| 4. Web UI | `az acr build` + [`infra/webapp-aca.bicep`](../infra/webapp-aca.bicep) | Streamlit app (with the Chat tab) in the same ACA env |
+| 5. Foundry agent | `azure-ai-projects` SDK (`agents.create_version`) | `chat-with-your-data` prompt agent + DAB MCP tool; grants the UAMI **Foundry User**; wires the agent into the web app |
 
 ACR is created by the script (not Bicep) so images exist before the apps
 reference them. Both container apps share one ACA environment and one
 registry. Stage 4 reuses the AcrPull grant from stage 3, so it adds no role
-assignment.
+assignment. Stage 5 runs after the web app exists so it can patch the agent's
+project endpoint, name, and version into the running container.
+
+---
+
+## The Foundry agent and the chat tab
+
+![Solution overview](architecture/01-solution-overview.svg)
+
+The accelerator ships a **Foundry prompt agent** named `chat-with-your-data`,
+created end-to-end by `deploy.ps1` (no portal clicks):
+
+1. **Chat model.** Stage 1 deploys `gpt-4.1` as the **`chat`** deployment
+   alongside the embedding model. The agent references the *deployment* name
+   (`chat`), not the model name — the Responses API resolves by deployment.
+2. **Agent definition.** Stage 5 calls
+   `project.agents.create_version(agent_name="chat-with-your-data", definition=PromptAgentDefinition(model="chat", instructions=…, tools=[MCPTool(server_url=<dabAppUrl>/mcp)]))`
+   from the `azure-ai-projects` SDK. `create_version` is an upsert, so re-runs
+   roll a new version rather than duplicating the agent. The agent shows up in
+   the **new** Foundry Agents experience.
+3. **The agent's only tool** is the hosted DAB `/mcp` endpoint
+   (`require_approval: never`), so it can call `describe_entities`,
+   `read_records`, `aggregate_records`, and the named
+   `find_similar_reviews_hybrid` tool. Its instructions enforce the DAB tool
+   contract (detailed `describe_entities` first, case-sensitive fields, no
+   `select: "*"`) — see [agent/README.md](../agent/README.md).
+4. **The Streamlit Chat tab** ([`app/app.py`](../app/app.py)) connects with the
+   **Microsoft Agent Framework SDK** (`agent_framework.foundry.FoundryAgent`).
+   It runs as the web container's UAMI (via `AZURE_CLIENT_ID`), which holds
+   **Foundry User** on the Foundry account. Conversation history lives in
+   Streamlit session state — there is no separate chat database.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant W as Streamlit (UAMI)
+    participant A as Foundry agent (chat)
+    participant D as DAB /mcp
+    participant S as Azure SQL
+    U->>W: "good for long hours?"
+    W->>A: FoundryAgent.run() (Responses API)
+    A->>D: find_similar_reviews_hybrid(queryText, top)
+    D->>S: EXEC dbo.find_similar_reviews_hybrid
+    S-->>D: top RRF-ranked reviews
+    D-->>A: rows
+    A-->>W: grounded answer (cites reviews)
+    W-->>U: rendered in chat
+```
+
+You can iterate on the agent locally with
+[`agent/agent.py`](../agent/agent.py): `--ensure` upserts the definition and
+`--invoke "…"` chats with it through the same Agent Framework SDK.
 
 ---
 

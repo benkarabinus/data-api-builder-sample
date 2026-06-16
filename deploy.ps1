@@ -213,6 +213,7 @@ $state = [ordered]@{
     foundryEndpoint     = $f.foundryEndpoint.value
     openAiEndpoint      = $f.openAiEndpoint.value
     embeddingDeployment = $f.embeddingDeployment.value
+    chatDeployment      = $f.chatDeployment.value
 }
 Write-Host "SQL server   : $($state.sqlServerFqdn)"
 Write-Host "Foundry      : $($state.foundryAccountName)"
@@ -392,6 +393,7 @@ if ($DeployWebApp) {
     Write-Host "Web image    : $webImage"
 
     $webDeploy = "web-aca-$(Get-Date -Format yyyyMMddHHmmss)"
+
     az deployment group create `
         --resource-group $ResourceGroupName `
         --name $webDeploy `
@@ -401,9 +403,13 @@ if ($DeployWebApp) {
             environmentName=$EnvironmentName `
             location=$Location `
             uamiResourceId=$($state.uamiResourceId) `
+            uamiClientId=$($state.uamiClientId) `
             acrName=$acrName `
             webImage="$webImage" `
             dabBaseUrl=$($state.dabAppUrl) `
+            foundryProjectEndpoint=$($state.foundryEndpoint) `
+            foundryAgentName="" `
+            foundryAgentVersion="" `
         -o none
     if ($LASTEXITCODE -ne 0) { throw 'Web ACA Bicep deployment failed.' }
 
@@ -413,6 +419,136 @@ if ($DeployWebApp) {
     Write-Host "Web UI live  : $($state.webAppUrl)"
 } else {
     Write-Section '4  Web UI SKIPPED (-DeployWebApp:$false)'
+}
+
+# =============================================================================
+# Stage 5 — Foundry prompt agent (new agents runtime) + chat wiring
+# =============================================================================
+
+Write-Section '5  Foundry Agent: prompt agent with DAB MCP tool'
+
+# The agent's model, instructions, and DAB MCP tool all live in the Foundry
+# agent definition. We upsert it with the azure-ai-projects SDK
+# (agents.create_version), which lands it in the new Foundry Agents
+# experience. The Streamlit chat tab then connects to it with the Microsoft
+# Agent Framework SDK (FoundryAgent), authenticating as the UAMI.
+
+$agentName    = "chat-with-your-data"
+$dabMcpUrl    = "$($state.dabAppUrl)/mcp"
+$projEndpoint = $state.foundryEndpoint
+
+$agentScript = @"
+import json, sys
+from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition, MCPTool
+
+PROJECT_ENDPOINT = "$projEndpoint"
+AGENT_NAME = "$agentName"
+DAB_MCP_URL = "$dabMcpUrl"
+MODEL_DEPLOYMENT = "$($state.chatDeployment)"
+
+instructions = (
+    "You answer questions about products and product reviews by calling the "
+    "DAB MCP tools. Rules you must follow:\n\n"
+    "1. Before any read_records, create_record, update_record, delete_record, "
+    "or aggregate_records call, FIRST call describe_entities with the entities "
+    "parameter for the specific entity (for example {\"entities\":[\"Product\"]}) "
+    "to get its real field list.\n"
+    "2. NEVER call describe_entities with nameOnly: true for query planning - it "
+    "omits the field names you need.\n"
+    "3. Use field names EXACTLY as returned by describe_entities. They are "
+    "case-sensitive (e.g. Category, not category). Never invent field names, and "
+    "never pass * to select (omit select to return all fields).\n"
+    "4. To search reviews by meaning, prefer the find_similar_reviews_hybrid tool "
+    "with queryText and top.\n"
+    "5. Ground every answer in the rows the tools return, and cite the review text "
+    "you used.\n"
+    "6. If a question cannot be answered from the connected tools, say you do not know."
+)
+
+try:
+    project = AIProjectClient(endpoint=PROJECT_ENDPOINT, credential=DefaultAzureCredential())
+    tool = MCPTool(
+        server_label="AzureSQLMCPServer",
+        server_url=DAB_MCP_URL,
+        require_approval="never",
+    )
+    agent = project.agents.create_version(
+        agent_name=AGENT_NAME,
+        definition=PromptAgentDefinition(
+            model=MODEL_DEPLOYMENT,
+            instructions=instructions,
+            tools=[tool],
+        ),
+    )
+    print(json.dumps({"agentName": agent.name, "agentVersion": str(agent.version)}))
+except Exception as e:
+    print(f"Error creating agent: {e}", file=sys.stderr)
+    sys.exit(1)
+"@
+
+# Grant the UAMI permission to invoke the agent's responses endpoint on the
+# Foundry account (the web container authenticates as this identity). The
+# documented role is 'Foundry User' (recently renamed from 'Azure AI User' —
+# same role ID/permissions). The rename is rolling out per-tenant, so try the
+# new name first and fall back to the old one. Role assignment is idempotent.
+$foundryAccountId = "/subscriptions/$($account.id)/resourceGroups/$ResourceGroupName/providers/Microsoft.CognitiveServices/accounts/$($state.foundryAccountName)"
+$invokeRoleAssigned = $false
+foreach ($roleName in @('Foundry User', 'Azure AI User')) {
+    Write-Host "Granting '$roleName' to the UAMI on the Foundry account..."
+    az role assignment create `
+        --assignee-object-id $($state.uamiPrincipalId) `
+        --assignee-principal-type ServicePrincipal `
+        --role "$roleName" `
+        --scope $foundryAccountId `
+        -o none 2>$null
+    if ($LASTEXITCODE -eq 0) { $invokeRoleAssigned = $true; break }
+}
+if (-not $invokeRoleAssigned) {
+    Write-Warning "Could not assign the agent-invoke role ('Foundry User'/'Azure AI User'). It may already exist, or you may need elevated rights. The chat tab needs this role to invoke the agent."
+}
+
+# Upsert the agent
+$pythonTmp = New-TemporaryFile | Rename-Item -NewName { $_.BaseName + '.py' } -PassThru
+Set-Content -LiteralPath $pythonTmp.FullName -Value $agentScript -Encoding utf8
+try {
+    Write-Host "Ensuring agent SDK packages (azure-ai-projects, azure-identity)..."
+    python -m pip install --quiet --disable-pip-version-check azure-ai-projects azure-identity 2>&1 | Out-Null
+    $agentResult = python $pythonTmp.FullName 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Agent upsert failed (see output above). Create/update it via https://ai.azure.com.`n$agentResult"
+        $state.agentName = ''
+        $state.agentVersion = ''
+    } else {
+        $agentJson = $agentResult | Select-Object -Last 1 | ConvertFrom-Json
+        $state.agentName    = $agentJson.agentName
+        $state.agentVersion = $agentJson.agentVersion
+        Write-Host "Agent ready  : $($state.agentName) (version $($state.agentVersion))"
+
+        if ($DeployWebApp) {
+            Write-Host "Wiring the web UI chat tab to the agent..."
+            az containerapp update `
+                --resource-group $ResourceGroupName `
+                --name $($state.webAppName) `
+                --set-env-vars `
+                    "FOUNDRY_PROJECT_ENDPOINT=$($state.foundryEndpoint)" `
+                    "FOUNDRY_AGENT_NAME=$($state.agentName)" `
+                    "FOUNDRY_AGENT_VERSION=$($state.agentVersion)" `
+                -o none
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Failed to set agent env vars on the web app; the chat tab may stay hidden."
+            } else {
+                Write-Host "Web UI chat tab wired to $($state.agentName)"
+            }
+        }
+    }
+} catch {
+    Write-Warning "Agent upsert script failed. Create/update it via https://ai.azure.com.`nError: $_"
+    $state.agentName = ''
+    $state.agentVersion = ''
+} finally {
+    Remove-Item -LiteralPath $pythonTmp.FullName -ErrorAction SilentlyContinue
 }
 
 # =============================================================================
@@ -432,6 +568,9 @@ Write-Host "    GraphQL : $($state.dabAppUrl)/graphql"
 Write-Host "    MCP     : $($state.dabAppUrl)/mcp"
 if ($DeployWebApp) {
     Write-Host "  Web UI         : $($state.webAppUrl)"
+}
+if ($state.agentName) {
+    Write-Host "  Foundry agent  : $($state.agentName) (version $($state.agentVersion))"
 }
 Write-Host ''
 Write-Host "State written to: $outFile" -ForegroundColor Yellow
