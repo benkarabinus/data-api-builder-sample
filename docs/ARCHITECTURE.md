@@ -203,6 +203,15 @@ created end-to-end by `deploy.ps1` (no portal clicks):
    `find_similar_reviews_hybrid` tool. Its instructions enforce the DAB tool
    contract (detailed `describe_entities` first, case-sensitive fields, no
    `select: "*"`) — see [agent/README.md](../agent/README.md).
+
+   > **Where guidance lives.** A prompt agent's `MCPTool` is structural only
+   > (`server_label`, `server_url`, `require_approval`, `allowed_tools`) — there
+   > is no per-tool instruction field. So tool/column *meaning* lives on the DAB
+   > MCP server (the `fields`/`parameters` descriptions in `dab-config.json`),
+   > while *when and how to call* tools and how to format output live in the
+   > agent `instructions`. The instruction text is kept identical in
+   > [`agent/agent.py`](../agent/agent.py) and [`deploy.ps1`](../deploy.ps1)
+   > Stage 5 so a redeploy doesn't drift from local iteration.
 4. **The Streamlit Chat tab** ([`app/app.py`](../app/app.py)) connects with the
    **Microsoft Agent Framework SDK** (`agent_framework.foundry.FoundryAgent`).
    It runs as the web container's UAMI (via `AZURE_CLIENT_ID`), which holds

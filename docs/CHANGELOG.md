@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-06-16 — Validated two-subscription deploy; agent instructions + BYO docs
+
+End-to-end `deploy.ps1` succeeded on a fresh subscription with the agent wired
+up automatically — confirming the foundation-level RBAC + cold-account retry
+hardening works for new deployers. Follow-up doc and consistency pass.
+
+- **Instruction parity.** Added a "format multiple products as a table" rule to
+  the agent instructions and **synced the identical block** between
+  [`agent/agent.py`](../agent/agent.py) and [`deploy.ps1`](../deploy.ps1)
+  Stage 5, so a redeploy can't silently drop locally-iterated guidance.
+- **Tool-instruction guidance (verified against Microsoft Learn).** Documented
+  that a prompt agent's `MCPTool` has **no free-text instruction field** — it's
+  structural only (`server_label`, `server_url`, `require_approval`,
+  `allowed_tools`). Tool/column *meaning* belongs on the DAB MCP server
+  (`dab-config.json` `fields`/`parameters`); *when/how to call* and output
+  formatting belong in the agent `instructions`. Captured in
+  `docs/ARCHITECTURE.md` and `docs/PROJECT_CONTEXT.md`.
+- **BYO + agent.** [`byo/README.md`](../byo/README.md) gains a step 7: the DAB
+  `/mcp` tool is self-describing so the agent auto-discovers a new table, but
+  behavioral guidance (preferring *your* hybrid-search SP, describing *your*
+  domain) requires editing the `INSTRUCTIONS` block and re-running
+  `agent.py --ensure`.
+- **Chat-tab refresh hint.** `agent/README.md` and the root `README.md` note
+  that the "Chat with Agent" tab can take a refresh or two to appear while the
+  new web revision starts serving.
+
 ## 2026-06-16 — Correct Stage 5 root cause: cold-account settling, not RBAC
 
 Reassessed the recurring Stage 5 failure (`create_version` → 404 "Project not

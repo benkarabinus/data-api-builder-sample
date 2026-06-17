@@ -212,3 +212,52 @@ object …"* in the container logs:
 ```powershell
 az containerapp logs show -g <rg> -n <dabAppName> --follow
 ```
+
+---
+
+## 7. Point the Foundry agent at your table (optional)
+
+The hosted DAB `/mcp` endpoint is the agent's only tool, and it's
+**self-describing** — once your table and SP are exposed (step 5), the agent's
+`describe_entities` call discovers `MyDoc` and `FindSimilarMyDocsHybrid`
+automatically. No agent change is needed for it to *read* your data.
+
+What the agent does **not** pick up automatically is **behavioral guidance**.
+The shipped `chat-with-your-data` agent's instructions talk about "products and
+product reviews" and name `find_similar_reviews_hybrid` specifically (see
+[agent/README.md](../agent/README.md)). To make the agent prefer *your* hybrid
+search tool and describe *your* domain, update its instructions and re-version
+it.
+
+> **Where tool guidance belongs.** Per the
+> [Foundry docs](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/model-context-protocol),
+> a tool object (`MCPTool`) carries no free-text instructions — it's structural
+> only (`server_label`, `server_url`, `require_approval`, `allowed_tools`). What
+> a tool/column *means* lives on the **MCP server** (the `fields`/`parameters`
+> descriptions you added in step 5). *When and how* to call it lives in the
+> **agent instructions**. So adapt the instructions, not the tool.
+
+Edit the `INSTRUCTIONS` block in [`agent/agent.py`](../agent/agent.py) (and the
+matching block in [`deploy.ps1`](../deploy.ps1) Stage 5 if you want it to
+survive a re-deploy) to reference your entity and SP — for example, replace
+rule 4 with:
+
+```
+4. To search MyDocs by meaning, prefer the find_similar_mydocs_hybrid tool
+   with queryText and top.
+```
+
+Then re-version the agent (needs `Foundry User` on the Foundry account — the
+deploy already granted it):
+
+```powershell
+pip install -r agent/requirements.txt
+az login
+python agent/agent.py --ensure
+python agent/agent.py --invoke "find documents about <topic in your data>"
+```
+
+`--ensure` rolls a new agent version with the updated instructions; the chat
+tab and playground use it immediately. If you only changed DAB config (not the
+instructions), you still want a new version so Foundry re-reads the tool list —
+re-run `--ensure` to refresh it.

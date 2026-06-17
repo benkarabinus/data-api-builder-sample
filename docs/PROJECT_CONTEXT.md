@@ -62,14 +62,31 @@ Derived from `-NamePrefix` + `-EnvironmentName` + a 6-char hash of
 
 - Foundation, SQL data plane, hosted DAB, the Streamlit web UI, **and the
   Foundry prompt agent** are all scripted and idempotent via `deploy.ps1`.
+  Validated end-to-end on a fresh subscription.
 - The agent (`chat-with-your-data`) is a Foundry **prompt agent** created with
   the `azure-ai-projects` SDK (`agents.create_version` + `PromptAgentDefinition`
   + `MCPTool`), so it appears in the new Foundry Agents experience. Its model
   is the `chat` deployment (`gpt-4.1`); its only tool is the hosted DAB `/mcp`
   endpoint.
+- **Agent RBAC is declarative.** `foundation.bicep` (Stage 1) grants
+  **Foundry User** (role GUID `53ca6127-…`, rename-proof) on the Foundry
+  account to *both* the deploying user (agent authoring) and the UAMI (invoke).
+  Granting at foundation time lets the roles propagate during the SQL +
+  image-build window, so Stage 5 never races RBAC. `Foundry User`'s
+  `Microsoft.CognitiveServices/*` data action covers both author and invoke;
+  subscription Owner alone does not.
+- **Cold-account settling**, not RBAC, was the real cause of earlier Stage 5
+  failures: a freshly-created Foundry account's agent *write* endpoint takes a
+  few minutes to become operational (reads work first). Stage 5 retries the
+  agent upsert (~10 min) to absorb this.
 - The Streamlit **Chat with Agent** tab connects with the Microsoft Agent
   Framework SDK (`agent_framework.foundry.FoundryAgent`) and authenticates as
-  the UAMI (`AZURE_CLIENT_ID` is set on the web container; the UAMI holds
-  **Foundry User** on the Foundry account).
+  the UAMI (`AZURE_CLIENT_ID` is set on the web container). The tab can lag a
+  refresh or two after deploy while the new web revision starts serving.
+- **Agent instructions vs. tools.** A prompt agent's `MCPTool` is structural
+  only (no per-tool instruction field); tool/column *meaning* lives on the DAB
+  MCP server (`dab-config.json` `fields`/`parameters`), while *when/how to call*
+  and output formatting live in the agent `instructions`. The same instruction
+  text is kept in sync between `agent/agent.py` and `deploy.ps1` Stage 5.
 - Default DAB ingress is **anonymous**. Entra protection for the MCP
   endpoint is a documented hardening step, not yet automated.

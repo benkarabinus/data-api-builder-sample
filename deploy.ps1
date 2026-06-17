@@ -465,7 +465,10 @@ instructions = (
     "with queryText and top.\n"
     "5. Ground every answer in the rows the tools return, and cite the review text "
     "you used.\n"
-    "6. If a question cannot be answered from the connected tools, say you do not know."
+    "6. If a question cannot be answered from the connected tools, say you do not "
+    "know.\n"
+    "7. When multiple products are returned as a result of a query, always format "
+    "the products as a table."
 )
 
 try:
