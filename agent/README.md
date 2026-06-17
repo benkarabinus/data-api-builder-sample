@@ -137,6 +137,7 @@ accelerator.
 
 | Symptom | Fix |
 |---|---|
+| **"Chat with Agent" tab doesn't appear** right after deploy | The web container picks up the agent env vars on a fresh revision, which can take a moment to start serving. **Refresh the Streamlit app a few times** (and give it ~30–60s after the deploy finishes). The tab renders once `FOUNDRY_AGENT_NAME` is live on the active revision — confirm with `az containerapp show -g <rg> -n <webAppName> --query "properties.template.containers[0].env[?name=='FOUNDRY_AGENT_NAME'].value"`. |
 | `DefaultAzureCredential failed to retrieve a token` / *Unable to load the proper Managed Identity* | The web container needs `AZURE_CLIENT_ID` set to the UAMI client ID so `DefaultAzureCredential` targets the user-assigned identity. `deploy.ps1` sets this; if you see it after a manual change, re-apply the env var. |
 | 403 / *PermissionDenied* invoking the agent | The calling identity (UAMI in Azure, or your `az login` locally) needs **Foundry User** on the Foundry account. Role propagation can take a minute or two. |
 | `DeploymentNotFound` | The agent's `model` must be the **deployment** name (`chat`), not the model name (`gpt-4.1`). |

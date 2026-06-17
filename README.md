@@ -156,7 +156,8 @@ For the request/response shapes see the DAB
 
 - **Web UI:** open `webAppUrl` from `outputs.json` in a browser — use the
   **Search** and **Browse** tabs, or the **Chat with Agent** tab to talk to
-  the Foundry agent.
+  the Foundry agent. If the chat tab isn't there yet, refresh a few times —
+  the web app's new revision takes a moment to start serving after deploy.
 - **VS Code Copilot Chat:** add the hosted MCP server to
   [`.vscode/mcp.json`](.vscode/mcp.json) (replace the placeholder URL with
   your `dabAppUrl` + `/mcp`), then use it in agent mode.
