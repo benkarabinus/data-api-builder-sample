@@ -23,7 +23,7 @@ to create the agent and the **Microsoft Agent Framework SDK**
 | **Chat model** | `gpt-4.1`, deployed in Stage 1 as the **`chat`** deployment (alongside the embedding model). |
 | **Prompt agent** | `chat-with-your-data`, created in Stage 5 via `agents.create_version(...)` + `PromptAgentDefinition`. `create_version` is an upsert, so re-running `deploy.ps1` rolls a new version instead of duplicating. |
 | **Tool** | One `MCPTool` pointing at your DAB `/mcp` endpoint (`dabAppUrl` + `/mcp`), `require_approval: never`. |
-| **RBAC** | The UAMI is granted **Foundry User** on the Foundry account — the role that authorizes agent/Responses-API invocation. |
+| **RBAC** | Both grants use **Foundry User** on the Foundry account: the **deploying user** (authoring — `create_version`) and the **UAMI** (invoke — the chat tab). Foundry User's `Microsoft.CognitiveServices/*` data action covers both; subscription Owner alone does not include it. |
 | **Chat tab wiring** | The web app gets `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_AGENT_NAME`, `FOUNDRY_AGENT_VERSION`, and `AZURE_CLIENT_ID` (the UAMI) so the tab can invoke the agent as the managed identity. |
 
 > The agent references the model by its **deployment name** (`chat`), not the
@@ -140,6 +140,7 @@ accelerator.
 | `DefaultAzureCredential failed to retrieve a token` / *Unable to load the proper Managed Identity* | The web container needs `AZURE_CLIENT_ID` set to the UAMI client ID so `DefaultAzureCredential` targets the user-assigned identity. `deploy.ps1` sets this; if you see it after a manual change, re-apply the env var. |
 | 403 / *PermissionDenied* invoking the agent | The calling identity (UAMI in Azure, or your `az login` locally) needs **Foundry User** on the Foundry account. Role propagation can take a minute or two. |
 | `DeploymentNotFound` | The agent's `model` must be the **deployment** name (`chat`), not the model name (`gpt-4.1`). |
+| `Project not found` when creating/updating the agent | Usually a **freshly-created Foundry account still settling** — the authoring (write) endpoint and its subdomain take several minutes to become operational, so reads work but `create_version` 404s. Retry in a few minutes (`deploy.ps1` retries automatically). RBAC is not the gate: **Foundry User** (`Microsoft.CognitiveServices/*`) already authorizes authoring — but an Owner-only deployer with no Foundry role still needs it granted. |
 | *Project not found* in the Foundry playground | Portal context cache — hard-refresh (Ctrl+F5) or re-select the project. The agent still works via SDK. |
 | `No module named 'aiohttp'` | `agent-framework-foundry` does not pull `aiohttp` automatically; it's pinned in [`app/requirements.txt`](../app/requirements.txt) and [`agent/requirements.txt`](requirements.txt). Reinstall requirements. |
 | Tool list is empty | Open `https://<your-dab-app>/mcp` directly; if it doesn't respond, check `az containerapp logs show -g <rg> -n <dabAppName> --follow`. |

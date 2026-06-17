@@ -42,6 +42,9 @@ param sqlAadAdminObjectId string
 @description('UPN or display name of the AAD user/group above. Used as the SQL admin login string.')
 param sqlAadAdminLogin string
 
+@description('Object ID (GUID) of the user deploying the stack. Granted Foundry User on the Foundry account so deploy.ps1 Stage 5 can author the prompt agent. The deploy.ps1 wrapper resolves this from "az ad signed-in-user show" (same value as sqlAadAdminObjectId).')
+param deployerObjectId string
+
 @description('IPv4 address to allow through the SQL firewall (typically the deploying machine). Pass "0.0.0.0" to skip adding a developer firewall rule.')
 param developerIpAddress string = '0.0.0.0'
 
@@ -74,6 +77,12 @@ var chatDeployName  = 'chat'
 
 // Built-in role: Cognitive Services OpenAI User
 var roleCogSvcOpenAIUser = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+
+// Built-in role: Foundry User (formerly 'Azure AI User'). Its data action is
+// Microsoft.CognitiveServices/*, which authorizes both agent authoring
+// (agents.create_version) and agent invocation (Responses API). Referenced by
+// GUID so it works regardless of where the Foundry rename has rolled out.
+var roleFoundryUser = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
 
 // -----------------------------------------------------------------------------
 // User-Assigned Managed Identity
@@ -238,6 +247,43 @@ resource raUamiOnFoundry 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
     principalId: uami.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleCogSvcOpenAIUser)
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Role assignments — Foundry User on the account (agent authoring + invoke)
+// -----------------------------------------------------------------------------
+//
+// Granted here, in the foundation deploy, on purpose: a freshly-created Foundry
+// account's agent (write) endpoint takes time to become operational, and role
+// assignments take time to propagate. By creating these now — before the SQL,
+// DAB-image, and web-image stages run — both have ~10 minutes to settle before
+// deploy.ps1 Stage 5 authors the prompt agent.
+//
+//   * Deployer  -> can author the agent (agents.create_version) in Stage 5.
+//   * UAMI      -> the web container invokes the agent as this identity.
+//
+// Foundry User's Microsoft.CognitiveServices/* data action covers both author
+// and invoke; subscription Owner alone does NOT include that data action, so an
+// Owner-only deployer still needs this explicit grant.
+
+resource raDeployerFoundryUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: foundry
+  name: guid(foundry.id, deployerObjectId, roleFoundryUser)
+  properties: {
+    principalId: deployerObjectId
+    principalType: 'User'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleFoundryUser)
+  }
+}
+
+resource raUamiFoundryUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: foundry
+  name: guid(foundry.id, uami.id, roleFoundryUser)
+  properties: {
+    principalId: uami.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleFoundryUser)
   }
 }
 

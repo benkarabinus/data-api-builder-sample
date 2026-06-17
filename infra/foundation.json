@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "6313471673806324335"
+      "templateHash": "2156652441270930444"
     }
   },
   "parameters": {
@@ -43,6 +43,12 @@
       "type": "string",
       "metadata": {
         "description": "UPN or display name of the AAD user/group above. Used as the SQL admin login string."
+      }
+    },
+    "deployerObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "Object ID (GUID) of the user deploying the stack. Granted Foundry User on the Foundry account so deploy.ps1 Stage 5 can author the prompt agent. The deploy.ps1 wrapper resolves this from \"az ad signed-in-user show\" (same value as sqlAadAdminObjectId)."
       }
     },
     "developerIpAddress": {
@@ -90,7 +96,8 @@
     "foundryProject": "[format('{0}-proj-{1}', parameters('namePrefix'), parameters('environmentName'))]",
     "embedDeployName": "embedding",
     "chatDeployName": "chat",
-    "roleCogSvcOpenAIUser": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"
+    "roleCogSvcOpenAIUser": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",
+    "roleFoundryUser": "53ca6127-db72-4b80-b1b0-d745d6d5456d"
   },
   "resources": [
     {
@@ -222,7 +229,8 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]"
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('foundryName'), variables('foundryProject'))]"
       ]
     },
     {
@@ -241,6 +249,7 @@
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('foundryName'), variables('embedDeployName'))]",
         "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]"
       ]
     },
@@ -253,6 +262,35 @@
         "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')), '2023-01-31').principalId]",
         "principalType": "ServicePrincipal",
         "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleCogSvcOpenAIUser'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName')), parameters('deployerObjectId'), variables('roleFoundryUser'))]",
+      "properties": {
+        "principalId": "[parameters('deployerObjectId')]",
+        "principalType": "User",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleFoundryUser'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')), variables('roleFoundryUser'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('uamiName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleFoundryUser'))]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]",

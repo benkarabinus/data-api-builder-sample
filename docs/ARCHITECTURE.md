@@ -163,17 +163,22 @@ idempotent:
 
 | Stage | Template / scripts | Produces |
 |---|---|---|
-| 1. Foundation | [`infra/foundation.bicep`](../infra/foundation.bicep) | UAMI, SQL, Foundry, **embedding + chat deployments**, role assignment |
+| 1. Foundation | [`infra/foundation.bicep`](../infra/foundation.bicep) | UAMI, SQL, Foundry, **embedding + chat deployments**, role assignments (UAMI → Cognitive Services OpenAI User; **deployer + UAMI → Foundry User** for agent author/invoke) |
 | 2. SQL data plane | [`sql/*.sql`](../sql) via `sqlcmd -G` | schema, embeddings, hybrid search SP |
 | 3. Hosted DAB | `az acr build` + [`infra/dab-aca.bicep`](../infra/dab-aca.bicep) | ACR, image, ACA env, DAB app |
 | 4. Web UI | `az acr build` + [`infra/webapp-aca.bicep`](../infra/webapp-aca.bicep) | Streamlit app (with the Chat tab) in the same ACA env |
-| 5. Foundry agent | `azure-ai-projects` SDK (`agents.create_version`) | `chat-with-your-data` prompt agent + DAB MCP tool; grants the UAMI **Foundry User**; wires the agent into the web app |
+| 5. Foundry agent | `azure-ai-projects` SDK (`agents.create_version`) | `chat-with-your-data` prompt agent + DAB MCP tool; wires the agent into the web app |
 
 ACR is created by the script (not Bicep) so images exist before the apps
 reference them. Both container apps share one ACA environment and one
 registry. Stage 4 reuses the AcrPull grant from stage 3, so it adds no role
-assignment. Stage 5 runs after the web app exists so it can patch the agent's
-project endpoint, name, and version into the running container.
+assignment. Stage 5 needs no role assignment either: the **Foundry User**
+grants it relies on are created in Stage 1, so they have the whole SQL +
+image-build window (~10 min) to propagate — and the agent's authoring endpoint,
+on a freshly-created account, has the same window to become operational. Stage 5
+runs after the web app exists so it can patch the agent's project endpoint,
+name, and version into the running container, and retries the agent upsert to
+absorb any remaining cold-account settling.
 
 ---
 

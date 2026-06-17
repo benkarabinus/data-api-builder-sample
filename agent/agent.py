@@ -56,7 +56,15 @@ def load_outputs() -> dict:
 
 
 def ensure_agent(outputs: dict) -> tuple[str, str]:
-    """Create or update the prompt agent version with the DAB MCP tool."""
+    """Create or update the prompt agent version with the DAB MCP tool.
+
+    The caller needs the **Foundry User** role on the Foundry account (its
+    `Microsoft.CognitiveServices/*` data action covers agent authoring;
+    subscription Owner alone does not). deploy.ps1 Stage 5 grants this. On a
+    freshly-created account the authoring endpoint can take several minutes to
+    become operational and may return 404 "Project not found" until it settles
+    — retry if that happens.
+    """
     project = AIProjectClient(
         endpoint=outputs["foundryEndpoint"],
         credential=DefaultAzureCredential(),

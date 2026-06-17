@@ -1,5 +1,58 @@
 # Changelog
 
+## 2026-06-16 — Correct Stage 5 root cause: cold-account settling, not RBAC
+
+Reassessed the recurring Stage 5 failure (`create_version` → 404 "Project not
+found") against the official Foundry Agent Service docs and direct evidence.
+
+- **RBAC was a red herring.** Both `Foundry User` and `Foundry Project Manager`
+  carry the same data action — `Microsoft.CognitiveServices/*` — which already
+  authorizes agent authoring. The deployer had `Foundry User` (subscription
+  scope) the whole time. The earlier "needs Foundry Project Manager" entry was
+  wrong; that grant added nothing. Confirmed by inspecting both role
+  definitions and by `create_version` later succeeding (v12) with **no** RBAC
+  change.
+- **Actual cause: freshly-created Foundry account settling.** On a cold
+  account, the authoring (write) endpoint and custom subdomain take several
+  minutes to become operational — reads (`agents.list`) work first while writes
+  404 ("Project not found" / "Subdomain does not map to a resource"). Stage 5's
+  earlier 6×30s retry wasn't long enough to outlast it.
+- **Fix (robust for all deployers).** The required **Foundry User** grants
+  (deployer → authoring; UAMI → invoke) are now created **declaratively in
+  `foundation.bicep`** (Stage 1), referenced by role **GUID**
+  (`53ca6127-…`) so they're immune to the per-tenant Foundry rename. Granting at
+  foundation time gives them the whole SQL + image-build window (~10 min) to
+  propagate, so Stage 5 never races role propagation. Subscription Owner alone
+  lacks the `Microsoft.CognitiveServices/*` data action, so an Owner-only
+  deployer is covered by the explicit grant. Dropped the imperative Stage 5
+  grants and the unnecessary `Foundry Project Manager` role. The agent upsert
+  retry is widened to ~10 min (20×30s) to absorb cold-account settling, and the
+  Stage 5 SDK install is version-pinned (`azure-ai-projects>=2.1.0`).
+- **Docs.** `agent/README.md` corrected (Foundry User is the authoring role;
+  `Project not found` is a settling issue, not RBAC). The prompt-agent approach
+  is unchanged — it matches the official code-first quickstart
+  (`agents.create_version` + `PromptAgentDefinition`).
+
+## 2026-06-15 — Fix Stage 5 agent authoring RBAC (Project not found)
+
+A clean end-to-end `deploy.ps1` run surfaced that **Stage 5 silently failed**
+(`create_version` → 404 "Project not found"), so the agent was never wired into
+the web app and the chat tab stayed hidden.
+
+- **Root cause.** Creating/updating a prompt agent is a Foundry **data-plane
+  write**. The deploying user had subscription **Owner** (control plane) and
+  **Foundry User** (read + invoke) — neither authorizes agent authoring. The
+  required role is **Foundry Project Manager** (formerly *Azure AI Project
+  Manager*), which `deploy.ps1` never granted. Reads (`agents.list`) and invoke
+  worked, which is why the agent looked healthy while writes 404'd.
+- **Fix.** Stage 5 now grants the **deploying user** `Foundry Project Manager`
+  on the Foundry account (new-name-first, old-name fallback), in addition to the
+  existing **Foundry User** grant for the UAMI (invoke). The agent upsert is
+  wrapped in a propagation-aware retry (6 × 30s) because data-plane role grants
+  can take a few minutes to take effect right after a fresh deploy.
+- **Docs.** `agent/README.md` documents the authoring vs. invoke roles and adds
+  a `Project not found` troubleshooting row.
+
 ## 2026-06-15 — Verify agent end-to-end, fix RBAC + UAMI auth, refresh docs
 
 Hardening + verification pass on the new agent stack, plus a full documentation

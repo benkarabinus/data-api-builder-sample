@@ -184,6 +184,7 @@ $foundationOut = az deployment group create `
         location=$Location `
         sqlAadAdminObjectId=$adminObjectId `
         sqlAadAdminLogin=$adminLogin `
+        deployerObjectId=$adminObjectId `
         developerIpAddress=$myIp `
     --output json | ConvertFrom-Json
 
@@ -488,36 +489,43 @@ except Exception as e:
     sys.exit(1)
 "@
 
-# Grant the UAMI permission to invoke the agent's responses endpoint on the
-# Foundry account (the web container authenticates as this identity). The
-# documented role is 'Foundry User' (recently renamed from 'Azure AI User' —
-# same role ID/permissions). The rename is rolling out per-tenant, so try the
-# new name first and fall back to the old one. Role assignment is idempotent.
-$foundryAccountId = "/subscriptions/$($account.id)/resourceGroups/$ResourceGroupName/providers/Microsoft.CognitiveServices/accounts/$($state.foundryAccountName)"
-$invokeRoleAssigned = $false
-foreach ($roleName in @('Foundry User', 'Azure AI User')) {
-    Write-Host "Granting '$roleName' to the UAMI on the Foundry account..."
-    az role assignment create `
-        --assignee-object-id $($state.uamiPrincipalId) `
-        --assignee-principal-type ServicePrincipal `
-        --role "$roleName" `
-        --scope $foundryAccountId `
-        -o none 2>$null
-    if ($LASTEXITCODE -eq 0) { $invokeRoleAssigned = $true; break }
-}
-if (-not $invokeRoleAssigned) {
-    Write-Warning "Could not assign the agent-invoke role ('Foundry User'/'Azure AI User'). It may already exist, or you may need elevated rights. The chat tab needs this role to invoke the agent."
-}
+# The Foundry data-plane roles needed here are granted declaratively in
+# foundation.bicep (Stage 1): 'Foundry User' on the Foundry account for both
+# the deploying user (agent authoring) and the UAMI (agent invoke). Granting
+# them at foundation time gives them the whole SQL + image-build window to
+# propagate, so by the time we author the agent below they're effective. No
+# imperative role assignment is needed here.
 
 # Upsert the agent
 $pythonTmp = New-TemporaryFile | Rename-Item -NewName { $_.BaseName + '.py' } -PassThru
 Set-Content -LiteralPath $pythonTmp.FullName -Value $agentScript -Encoding utf8
 try {
-    Write-Host "Ensuring agent SDK packages (azure-ai-projects, azure-identity)..."
-    python -m pip install --quiet --disable-pip-version-check azure-ai-projects azure-identity 2>&1 | Out-Null
-    $agentResult = python $pythonTmp.FullName 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Agent upsert failed (see output above). Create/update it via https://ai.azure.com.`n$agentResult"
+    Write-Host "Ensuring agent SDK packages (azure-ai-projects>=2.1.0, azure-identity)..."
+    python -m pip install --quiet --disable-pip-version-check "azure-ai-projects>=2.1.0" "azure-identity>=1.17.0" 2>&1 | Out-Null
+
+    # On a freshly-created Foundry account, the agent **authoring** (write)
+    # endpoint and its custom subdomain take time to become fully operational —
+    # reads (agents.list) succeed first, while writes (agents.create_version)
+    # return 404 "Project not found" / "Subdomain does not map to a resource"
+    # until the account settles. (RBAC is not the gate: 'Foundry User' already
+    # grants the Microsoft.CognitiveServices/* data action used here.) Newly
+    # granted role assignments can also take a few minutes to propagate. So
+    # retry with backoff long enough to absorb a cold account — up to ~10 min.
+    $maxAttempts = 20
+    $delaySeconds = 30
+    $agentResult = $null
+    $agentOk = $false
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        $agentResult = python $pythonTmp.FullName 2>&1
+        if ($LASTEXITCODE -eq 0) { $agentOk = $true; break }
+        if ($attempt -lt $maxAttempts) {
+            Write-Host "Agent upsert attempt $attempt/$maxAttempts failed (new account still settling); retrying in ${delaySeconds}s..."
+            Start-Sleep -Seconds $delaySeconds
+        }
+    }
+
+    if (-not $agentOk) {
+        Write-Warning "Agent upsert failed after $maxAttempts attempts (see output above). The Foundry account may still be settling — rerun 'python agent/agent.py --ensure' in a few minutes, or create the agent via https://ai.azure.com.`n$agentResult"
         $state.agentName = ''
         $state.agentVersion = ''
     } else {
